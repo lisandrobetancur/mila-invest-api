@@ -1,0 +1,4957 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MILA Invest API",
+    "version": "1.0.0",
+    "description": "Simulador de inversiones (paper trading) para Colombia, México y Perú. No se mueve dinero real: precios, comisiones, horarios y tasas de cambio son simulados, y la API no es asesoría financiera."
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "example": "Insufficient funds"
+          },
+          "status": {
+            "type": "integer",
+            "example": 422,
+            "minimum": 400,
+            "maximum": 599
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "AUTH_INVALID_CREDENTIALS",
+              "AUTH_EMAIL_TAKEN",
+              "AUTH_DOCUMENT_TAKEN",
+              "AUTH_TOKEN_EXPIRED",
+              "AUTH_TOKEN_INVALID",
+              "AUTH_REFRESH_INVALID",
+              "INSUFFICIENT_FUNDS",
+              "INSUFFICIENT_POSITION",
+              "MARKET_CLOSED",
+              "INSTRUMENT_NOT_FOUND",
+              "ORDER_NOT_FOUND",
+              "IDEMPOTENCY_CONFLICT",
+              "RATE_LIMITED",
+              "NOT_FOUND",
+              "PAYLOAD_TOO_LARGE",
+              "INTERNAL_ERROR"
+            ],
+            "example": "INSUFFICIENT_FUNDS"
+          },
+          "detail": {
+            "type": "string",
+            "example": "Available 12000.00 COP"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "quantity"
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "REQUIRED",
+                    "INVALID_FORMAT",
+                    "TOO_SHORT",
+                    "TOO_LONG",
+                    "TOO_SMALL",
+                    "TOO_LARGE",
+                    "NOT_ALLOWED"
+                  ],
+                  "example": "TOO_LARGE"
+                }
+              },
+              "required": [
+                "field",
+                "code"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Estado del servicio y de la base de datos",
+        "tags": [
+          "health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "status": "ok",
+                    "db": "ok"
+                  },
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "db": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "db"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Registro de un usuario en un país",
+        "tags": [
+          "auth"
+        ],
+        "description": "Crea el usuario con sus tres cuentas (COP, MXN, PEN) en cero. El número de documento no se guarda en claro.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "ana@example.com",
+                    "format": "email",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "8 a 128 caracteres, con al menos una letra y un número",
+                    "example": "Demo1234!",
+                    "minLength": 8,
+                    "maxLength": 128,
+                    "pattern": "\\d"
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "example": "Ana Gómez",
+                    "minLength": 3,
+                    "maxLength": 80
+                  },
+                  "country": {
+                    "type": "string",
+                    "enum": [
+                      "CO",
+                      "MX",
+                      "PE"
+                    ],
+                    "example": "CO"
+                  },
+                  "document_type": {
+                    "type": "string",
+                    "example": "CC",
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "CC",
+                          "CE"
+                        ],
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {},
+                            "nullable": true
+                          },
+                          {
+                            "type": "boolean",
+                            "nullable": true
+                          },
+                          {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "CURP"
+                        ]
+                      },
+                      {
+                        "enum": [
+                          "DNI",
+                          "CE"
+                        ],
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {},
+                            "nullable": true
+                          },
+                          {
+                            "type": "boolean",
+                            "nullable": true
+                          },
+                          {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        ]
+                      },
+                      {
+                        "enum": [
+                          "CC",
+                          "CE",
+                          "CURP",
+                          "DNI"
+                        ],
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {},
+                            "nullable": true
+                          },
+                          {
+                            "type": "boolean",
+                            "nullable": true
+                          },
+                          {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "document_number": {
+                    "type": "string",
+                    "example": "1234567890",
+                    "maxLength": 32,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{6,10}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z]{4}\\d{6}[HM][A-Z]{5}[A-Z0-9]\\d$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{8}$"
+                      },
+                      {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9]{9,12}$"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9]{6,12}$"
+                          }
+                        ],
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {},
+                            "nullable": true
+                          },
+                          {
+                            "type": "boolean",
+                            "nullable": true
+                          },
+                          {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "full_name",
+                  "country",
+                  "document_type",
+                  "document_number"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "user": {
+                      "id": "usr_01JC0000000000000000000001",
+                      "email": "demo@milainvest.app",
+                      "full_name": "Usuario Demo",
+                      "country": "CO",
+                      "base_currency": "COP",
+                      "document_type": "CC",
+                      "document_last4": "4050"
+                    },
+                    "tokens": {
+                      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                      "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                      "token_type": "bearer",
+                      "expires_in": 900
+                    }
+                  },
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "example": {
+                        "id": "usr_01JC0000000000000000000001",
+                        "email": "demo@milainvest.app",
+                        "full_name": "Usuario Demo",
+                        "country": "CO",
+                        "base_currency": "COP",
+                        "document_type": "CC",
+                        "document_last4": "4050"
+                      },
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "usr_01JC0000000000000000000001",
+                          "pattern": "^usr_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                        },
+                        "email": {
+                          "type": "string",
+                          "example": "demo@milainvest.app",
+                          "format": "email"
+                        },
+                        "full_name": {
+                          "type": "string",
+                          "example": "Usuario Demo"
+                        },
+                        "country": {
+                          "type": "string",
+                          "enum": [
+                            "CO",
+                            "MX",
+                            "PE"
+                          ],
+                          "example": "CO"
+                        },
+                        "base_currency": {
+                          "type": "string",
+                          "enum": [
+                            "COP",
+                            "MXN",
+                            "PEN"
+                          ],
+                          "example": "COP"
+                        },
+                        "document_type": {
+                          "type": "string",
+                          "enum": [
+                            "CC",
+                            "CE",
+                            "CURP",
+                            "DNI"
+                          ],
+                          "example": "CC"
+                        },
+                        "document_last4": {
+                          "type": "string",
+                          "example": "4050",
+                          "minLength": 1,
+                          "maxLength": 4
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "full_name",
+                        "country",
+                        "base_currency",
+                        "document_type",
+                        "document_last4"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                        "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                        "token_type": "bearer",
+                        "expires_in": 900
+                      },
+                      "properties": {
+                        "access_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        },
+                        "refresh_token": {
+                          "type": "string",
+                          "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ"
+                        },
+                        "token_type": {
+                          "type": "string",
+                          "enum": [
+                            "bearer"
+                          ]
+                        },
+                        "expires_in": {
+                          "type": "integer",
+                          "example": 900,
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "access_token",
+                        "refresh_token",
+                        "token_type",
+                        "expires_in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "tokens"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`AUTH_EMAIL_TAKEN`, `AUTH_DOCUMENT_TAKEN`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login con email y contraseña",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "ana@example.com",
+                    "format": "email",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Demo1234!",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                    "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                    "token_type": "bearer",
+                    "expires_in": 900
+                  },
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ"
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "enum": [
+                        "bearer"
+                      ]
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 900,
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "access_token",
+                    "refresh_token",
+                    "token_type",
+                    "expires_in"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_INVALID_CREDENTIALS`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Rota el refresh token y devuelve un par nuevo",
+        "tags": [
+          "auth"
+        ],
+        "description": "El refresh token anterior queda invalidado. Reutilizar uno ya rotado revoca toda su familia.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string",
+                    "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "minLength": 16,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                    "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                    "token_type": "bearer",
+                    "expires_in": 900
+                  },
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ"
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "enum": [
+                        "bearer"
+                      ]
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 900,
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "access_token",
+                    "refresh_token",
+                    "token_type",
+                    "expires_in"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_REFRESH_INVALID`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Revoca el refresh token enviado",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string",
+                    "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "minLength": 16,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sin contenido"
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "summary": "Perfil del usuario autenticado",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "id": "usr_01JC0000000000000000000001",
+                    "email": "demo@milainvest.app",
+                    "full_name": "Usuario Demo",
+                    "country": "CO",
+                    "base_currency": "COP",
+                    "document_type": "CC",
+                    "document_last4": "4050"
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "usr_01JC0000000000000000000001",
+                      "pattern": "^usr_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                    },
+                    "email": {
+                      "type": "string",
+                      "example": "demo@milainvest.app",
+                      "format": "email"
+                    },
+                    "full_name": {
+                      "type": "string",
+                      "example": "Usuario Demo"
+                    },
+                    "country": {
+                      "type": "string",
+                      "enum": [
+                        "CO",
+                        "MX",
+                        "PE"
+                      ],
+                      "example": "CO"
+                    },
+                    "base_currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "document_type": {
+                      "type": "string",
+                      "enum": [
+                        "CC",
+                        "CE",
+                        "CURP",
+                        "DNI"
+                      ],
+                      "example": "CC"
+                    },
+                    "document_last4": {
+                      "type": "string",
+                      "example": "4050",
+                      "minLength": 1,
+                      "maxLength": 4
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "email",
+                    "full_name",
+                    "country",
+                    "base_currency",
+                    "document_type",
+                    "document_last4"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta/countries": {
+      "get": {
+        "summary": "Países soportados, con su moneda, documentos y estado del mercado",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "array",
+                  "example": [
+                    {
+                      "code": "CO",
+                      "currency": "COP",
+                      "time_zone": "America/Bogota",
+                      "document_types": [
+                        "CC",
+                        "CE"
+                      ],
+                      "market": {
+                        "status": "OPEN",
+                        "opens_at": "2026-11-18T14:30:00Z",
+                        "closes_at": "2026-11-18T21:00:00Z"
+                      }
+                    }
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "enum": [
+                          "CO",
+                          "MX",
+                          "PE"
+                        ],
+                        "example": "CO"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "COP",
+                          "MXN",
+                          "PEN"
+                        ],
+                        "example": "COP"
+                      },
+                      "time_zone": {
+                        "type": "string",
+                        "example": "America/Bogota"
+                      },
+                      "document_types": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "CC",
+                            "CE",
+                            "CURP",
+                            "DNI"
+                          ]
+                        }
+                      },
+                      "market": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "CLOSED"
+                            ]
+                          },
+                          "opens_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          },
+                          "closes_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "opens_at",
+                          "closes_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "currency",
+                      "time_zone",
+                      "document_types",
+                      "market"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts": {
+      "get": {
+        "summary": "Cuentas del usuario, una por moneda",
+        "tags": [
+          "accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "array",
+                  "example": [
+                    {
+                      "id": "acc_01JC0000000000000000000101",
+                      "currency": "COP",
+                      "available": "50000000.00",
+                      "reserved": "0.00"
+                    }
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "example": "acc_01JC0000000000000000000101",
+                        "pattern": "^acc_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "COP",
+                          "MXN",
+                          "PEN"
+                        ],
+                        "example": "COP"
+                      },
+                      "available": {
+                        "type": "string",
+                        "example": "1234.56",
+                        "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                      },
+                      "reserved": {
+                        "type": "string",
+                        "example": "1234.56",
+                        "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "currency",
+                      "available",
+                      "reserved"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{currency}/deposits": {
+      "post": {
+        "summary": "Depósito de dinero virtual en la cuenta de una moneda",
+        "tags": [
+          "accounts"
+        ],
+        "description": "Máximo por depósito: COP 100.000.000, MXN 500.000, PEN 100.000; el acumulado por cuenta es 10 veces ese valor. Requiere `Idempotency-Key`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "description": "Monto a depositar, como string decimal mayor que 0",
+                    "example": "1234.56",
+                    "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                  }
+                },
+                "required": [
+                  "amount"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COP",
+                "MXN",
+                "PEN"
+              ],
+              "example": "COP"
+            },
+            "in": "path",
+            "name": "currency",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "UUID v4 que identifica la operación; repetirlo no la ejecuta dos veces"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "id": "txn_01JC0000000000000000000011",
+                    "type": "BUY",
+                    "amount": "-23860.00",
+                    "currency": "COP",
+                    "description": "Compra 10 ECOPETROL",
+                    "order_id": "ord_01JC0000000000000000000001",
+                    "created_at": "2026-11-18T14:43:10Z"
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^txn_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "DEPOSIT",
+                        "BUY",
+                        "SELL",
+                        "FEE"
+                      ]
+                    },
+                    "amount": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "order_id": {
+                      "type": "string",
+                      "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$",
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "amount",
+                    "currency",
+                    "description",
+                    "order_id",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`IDEMPOTENCY_CONFLICT`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instruments": {
+      "get": {
+        "summary": "Catálogo de instrumentos con su último precio",
+        "tags": [
+          "market"
+        ],
+        "description": "Orden estable: `country, ticker`. Los precios son simulados.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CO",
+                "MX",
+                "PE"
+              ],
+              "example": "CO"
+            },
+            "in": "query",
+            "name": "country",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STOCK",
+                "ETF"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Busca en el ticker y en el nombre"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "maxLength": 512
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Cursor opaco devuelto en `next_cursor`"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "ECOPETROL-CO",
+                        "ticker": "ECOPETROL",
+                        "name": "Ecopetrol S.A.",
+                        "country": "CO",
+                        "type": "STOCK",
+                        "currency": "COP",
+                        "last_price": "2385.00",
+                        "change": "35.00",
+                        "change_pct": "1.49",
+                        "updated_at": "2026-11-18T14:42:00Z"
+                      }
+                    ],
+                    "next_cursor": "MjAyNi0xMS0xOFQxNDo0MzoxMC4wMDBafG9yZF8wMUpD"
+                  },
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "example": {
+                          "id": "ECOPETROL-CO",
+                          "ticker": "ECOPETROL",
+                          "name": "Ecopetrol S.A.",
+                          "country": "CO",
+                          "type": "STOCK",
+                          "currency": "COP",
+                          "last_price": "2385.00",
+                          "change": "35.00",
+                          "change_pct": "1.49",
+                          "updated_at": "2026-11-18T14:42:00Z"
+                        },
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "ECOPETROL-CO",
+                            "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                          },
+                          "ticker": {
+                            "type": "string",
+                            "pattern": "^[A-Z0-9]{1,12}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "country": {
+                            "type": "string",
+                            "enum": [
+                              "CO",
+                              "MX",
+                              "PE"
+                            ],
+                            "example": "CO"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "STOCK",
+                              "ETF"
+                            ]
+                          },
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "last_price": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "change": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "change_pct": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "ticker",
+                          "name",
+                          "country",
+                          "type",
+                          "currency",
+                          "last_price",
+                          "change",
+                          "change_pct",
+                          "updated_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instruments/{id}": {
+      "get": {
+        "summary": "Detalle de un instrumento",
+        "tags": [
+          "market"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "ECOPETROL-CO",
+              "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "id": "ECOPETROL-CO",
+                    "ticker": "ECOPETROL",
+                    "name": "Ecopetrol S.A.",
+                    "country": "CO",
+                    "type": "STOCK",
+                    "currency": "COP",
+                    "last_price": "2385.00",
+                    "change": "35.00",
+                    "change_pct": "1.49",
+                    "updated_at": "2026-11-18T14:42:00Z",
+                    "open": "2352.00",
+                    "high": "2391.00",
+                    "low": "2348.00",
+                    "prev_close": "2350.00",
+                    "volume": 4200000,
+                    "description": "Ecopetrol S.A. Precio simulado: no refleja cotizaciones reales."
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "ECOPETROL-CO",
+                      "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                    },
+                    "ticker": {
+                      "type": "string",
+                      "pattern": "^[A-Z0-9]{1,12}$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string",
+                      "enum": [
+                        "CO",
+                        "MX",
+                        "PE"
+                      ],
+                      "example": "CO"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "STOCK",
+                        "ETF"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "last_price": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "change": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "change_pct": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    },
+                    "open": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "high": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "low": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "prev_close": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "volume": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ticker",
+                    "name",
+                    "country",
+                    "type",
+                    "currency",
+                    "last_price",
+                    "change",
+                    "change_pct",
+                    "updated_at",
+                    "open",
+                    "high",
+                    "low",
+                    "prev_close",
+                    "volume",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instruments/{id}/prices": {
+      "get": {
+        "summary": "Historial de precios de un instrumento",
+        "tags": [
+          "market"
+        ],
+        "description": "`1D` cada 5 minutos de la sesión, `1W` cada hora, `1M` y `3M` diario, `1Y` semanal. Máximo 400 puntos.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "default": "1D",
+              "enum": [
+                "1D",
+                "1W",
+                "1M",
+                "3M",
+                "1Y"
+              ]
+            },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "ECOPETROL-CO",
+              "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "range": "1D",
+                    "currency": "COP",
+                    "points": [
+                      {
+                        "t": "2026-11-18T14:30:00Z",
+                        "price": "2352.00"
+                      },
+                      {
+                        "t": "2026-11-18T14:35:00Z",
+                        "price": "2361.50"
+                      }
+                    ]
+                  },
+                  "properties": {
+                    "range": {
+                      "type": "string",
+                      "enum": [
+                        "1D",
+                        "1W",
+                        "1M",
+                        "3M",
+                        "1Y"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "points": {
+                      "type": "array",
+                      "maxItems": 400,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "t": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          },
+                          "price": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          }
+                        },
+                        "required": [
+                          "t",
+                          "price"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "range",
+                    "currency",
+                    "points"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/preview": {
+      "post": {
+        "summary": "Simula una orden a mercado sin ejecutarla",
+        "tags": [
+          "orders"
+        ],
+        "description": "Calcula precio estimado, bruto, comisión y total. No escribe nada. `warnings` siempre incluye `PRICE_MAY_CHANGE`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instrument_id": {
+                    "type": "string",
+                    "example": "ECOPETROL-CO",
+                    "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                  },
+                  "side": {
+                    "type": "string",
+                    "enum": [
+                      "BUY",
+                      "SELL"
+                    ],
+                    "example": "BUY"
+                  },
+                  "type": {
+                    "description": "Fase 1: solo órdenes a mercado",
+                    "example": "MARKET",
+                    "type": "string",
+                    "enum": [
+                      "MARKET"
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "example": 10,
+                    "minimum": 1,
+                    "maximum": 1000000
+                  }
+                },
+                "required": [
+                  "instrument_id",
+                  "side",
+                  "type",
+                  "quantity"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "estimated_price": "2386.00",
+                    "gross": "23860.00",
+                    "commission": "5000.00",
+                    "total": "28860.00",
+                    "currency": "COP",
+                    "available_after": "49971140.00",
+                    "warnings": [
+                      "PRICE_MAY_CHANGE"
+                    ]
+                  },
+                  "properties": {
+                    "estimated_price": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "gross": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "commission": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "total": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "available_after": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "MARKET_CLOSING_SOON",
+                          "PRICE_MAY_CHANGE"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "estimated_price",
+                    "gross",
+                    "commission",
+                    "total",
+                    "currency",
+                    "available_after",
+                    "warnings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`MARKET_CLOSED`, `INSUFFICIENT_FUNDS`, `INSUFFICIENT_POSITION`, `VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "summary": "Ejecuta una orden a mercado",
+        "tags": [
+          "orders"
+        ],
+        "description": "Requiere `Idempotency-Key`. Si la orden pasa la validación pero se rechaza al ejecutar (p. ej. por una orden concurrente), responde 201 con `status: \"REJECTED\"` y su `reject_code`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instrument_id": {
+                    "type": "string",
+                    "example": "ECOPETROL-CO",
+                    "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                  },
+                  "side": {
+                    "type": "string",
+                    "enum": [
+                      "BUY",
+                      "SELL"
+                    ],
+                    "example": "BUY"
+                  },
+                  "type": {
+                    "description": "Fase 1: solo órdenes a mercado",
+                    "example": "MARKET",
+                    "type": "string",
+                    "enum": [
+                      "MARKET"
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "example": 10,
+                    "minimum": 1,
+                    "maximum": 1000000
+                  }
+                },
+                "required": [
+                  "instrument_id",
+                  "side",
+                  "type",
+                  "quantity"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "UUID v4 que identifica la operación; repetirlo no la ejecuta dos veces"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "id": "ord_01JC0000000000000000000001",
+                    "instrument_id": "ECOPETROL-CO",
+                    "side": "BUY",
+                    "type": "MARKET",
+                    "quantity": 10,
+                    "status": "FILLED",
+                    "executed_price": "2386.00",
+                    "gross": "23860.00",
+                    "commission": "5000.00",
+                    "total": "28860.00",
+                    "currency": "COP",
+                    "reject_code": null,
+                    "created_at": "2026-11-18T14:43:10Z",
+                    "filled_at": "2026-11-18T14:43:10Z"
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                    },
+                    "instrument_id": {
+                      "type": "string",
+                      "example": "ECOPETROL-CO",
+                      "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                    },
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "BUY",
+                        "SELL"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "MARKET",
+                        "LIMIT"
+                      ]
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "FILLED",
+                        "REJECTED",
+                        "CANCELLED"
+                      ]
+                    },
+                    "executed_price": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$",
+                      "nullable": true
+                    },
+                    "gross": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "commission": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "total": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "reject_code": {
+                      "type": "string",
+                      "enum": [
+                        "INSUFFICIENT_FUNDS",
+                        "INSUFFICIENT_POSITION",
+                        "MARKET_CLOSED",
+                        null
+                      ],
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    },
+                    "filled_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "instrument_id",
+                    "side",
+                    "type",
+                    "quantity",
+                    "status",
+                    "executed_price",
+                    "gross",
+                    "commission",
+                    "total",
+                    "currency",
+                    "reject_code",
+                    "created_at",
+                    "filled_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`IDEMPOTENCY_CONFLICT`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`MARKET_CLOSED`, `INSUFFICIENT_FUNDS`, `INSUFFICIENT_POSITION`, `VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Órdenes del usuario",
+        "tags": [
+          "orders"
+        ],
+        "description": "Orden estable: `created_at DESC, id DESC`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "FILLED",
+                "REJECTED",
+                "CANCELLED"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "maxLength": 512
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Cursor opaco devuelto en `next_cursor`"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "ord_01JC0000000000000000000001",
+                        "instrument_id": "ECOPETROL-CO",
+                        "side": "BUY",
+                        "type": "MARKET",
+                        "quantity": 10,
+                        "status": "FILLED",
+                        "executed_price": "2386.00",
+                        "gross": "23860.00",
+                        "commission": "5000.00",
+                        "total": "28860.00",
+                        "currency": "COP",
+                        "reject_code": null,
+                        "created_at": "2026-11-18T14:43:10Z",
+                        "filled_at": "2026-11-18T14:43:10Z"
+                      }
+                    ],
+                    "next_cursor": "MjAyNi0xMS0xOFQxNDo0MzoxMC4wMDBafG9yZF8wMUpD"
+                  },
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "example": {
+                          "id": "ord_01JC0000000000000000000001",
+                          "instrument_id": "ECOPETROL-CO",
+                          "side": "BUY",
+                          "type": "MARKET",
+                          "quantity": 10,
+                          "status": "FILLED",
+                          "executed_price": "2386.00",
+                          "gross": "23860.00",
+                          "commission": "5000.00",
+                          "total": "28860.00",
+                          "currency": "COP",
+                          "reject_code": null,
+                          "created_at": "2026-11-18T14:43:10Z",
+                          "filled_at": "2026-11-18T14:43:10Z"
+                        },
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                          },
+                          "instrument_id": {
+                            "type": "string",
+                            "example": "ECOPETROL-CO",
+                            "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                          },
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "BUY",
+                              "SELL"
+                            ]
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "MARKET",
+                              "LIMIT"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "PENDING",
+                              "FILLED",
+                              "REJECTED",
+                              "CANCELLED"
+                            ]
+                          },
+                          "executed_price": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$",
+                            "nullable": true
+                          },
+                          "gross": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "commission": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "total": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "reject_code": {
+                            "type": "string",
+                            "enum": [
+                              "INSUFFICIENT_FUNDS",
+                              "INSUFFICIENT_POSITION",
+                              "MARKET_CLOSED",
+                              null
+                            ],
+                            "nullable": true
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          },
+                          "filled_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "instrument_id",
+                          "side",
+                          "type",
+                          "quantity",
+                          "status",
+                          "executed_price",
+                          "gross",
+                          "commission",
+                          "total",
+                          "currency",
+                          "reject_code",
+                          "created_at",
+                          "filled_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}": {
+      "get": {
+        "summary": "Detalle de una orden propia",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "id": "ord_01JC0000000000000000000001",
+                    "instrument_id": "ECOPETROL-CO",
+                    "side": "BUY",
+                    "type": "MARKET",
+                    "quantity": 10,
+                    "status": "FILLED",
+                    "executed_price": "2386.00",
+                    "gross": "23860.00",
+                    "commission": "5000.00",
+                    "total": "28860.00",
+                    "currency": "COP",
+                    "reject_code": null,
+                    "created_at": "2026-11-18T14:43:10Z",
+                    "filled_at": "2026-11-18T14:43:10Z"
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                    },
+                    "instrument_id": {
+                      "type": "string",
+                      "example": "ECOPETROL-CO",
+                      "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                    },
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "BUY",
+                        "SELL"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "MARKET",
+                        "LIMIT"
+                      ]
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "FILLED",
+                        "REJECTED",
+                        "CANCELLED"
+                      ]
+                    },
+                    "executed_price": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$",
+                      "nullable": true
+                    },
+                    "gross": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "commission": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "total": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "reject_code": {
+                      "type": "string",
+                      "enum": [
+                        "INSUFFICIENT_FUNDS",
+                        "INSUFFICIENT_POSITION",
+                        "MARKET_CLOSED",
+                        null
+                      ],
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    },
+                    "filled_at": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "instrument_id",
+                    "side",
+                    "type",
+                    "quantity",
+                    "status",
+                    "executed_price",
+                    "gross",
+                    "commission",
+                    "total",
+                    "currency",
+                    "reject_code",
+                    "created_at",
+                    "filled_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ORDER_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio": {
+      "get": {
+        "summary": "Posiciones y valorización del portafolio",
+        "tags": [
+          "portfolio"
+        ],
+        "description": "Los totales van en la moneda base del usuario; las tasas de conversión usadas se informan en `fx_rates_used`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "base_currency": "COP",
+                    "total_value": "50286200.00",
+                    "cash_value": "50000000.00",
+                    "invested_value": "286200.00",
+                    "day_change": "4200.00",
+                    "day_change_pct": "1.49",
+                    "positions": [
+                      {
+                        "instrument": {
+                          "id": "ECOPETROL-CO",
+                          "ticker": "ECOPETROL",
+                          "name": "Ecopetrol S.A.",
+                          "country": "CO",
+                          "type": "STOCK",
+                          "currency": "COP",
+                          "last_price": "2385.00",
+                          "change": "35.00",
+                          "change_pct": "1.49",
+                          "updated_at": "2026-11-18T14:42:00Z"
+                        },
+                        "quantity": 120,
+                        "avg_cost": "2210.50",
+                        "market_value": "286200.00",
+                        "unrealized_pnl": "20940.00",
+                        "unrealized_pnl_pct": "7.89",
+                        "currency": "COP"
+                      }
+                    ],
+                    "allocation": [
+                      {
+                        "type": "CASH",
+                        "value": "50000000.00",
+                        "pct": "99.43"
+                      },
+                      {
+                        "type": "STOCK",
+                        "value": "286200.00",
+                        "pct": "0.57"
+                      },
+                      {
+                        "type": "ETF",
+                        "value": "0.00",
+                        "pct": "0.00"
+                      }
+                    ],
+                    "fx_rates_used": [
+                      {
+                        "from": "MXN",
+                        "to": "COP",
+                        "rate": "216.216216",
+                        "as_of": "2026-11-18T14:42:00Z"
+                      },
+                      {
+                        "from": "PEN",
+                        "to": "COP",
+                        "rate": "1066.666667",
+                        "as_of": "2026-11-18T14:42:00Z"
+                      }
+                    ]
+                  },
+                  "properties": {
+                    "base_currency": {
+                      "type": "string",
+                      "enum": [
+                        "COP",
+                        "MXN",
+                        "PEN"
+                      ],
+                      "example": "COP"
+                    },
+                    "total_value": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "cash_value": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "invested_value": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "day_change": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "day_change_pct": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "example": {
+                          "instrument": {
+                            "id": "ECOPETROL-CO",
+                            "ticker": "ECOPETROL",
+                            "name": "Ecopetrol S.A.",
+                            "country": "CO",
+                            "type": "STOCK",
+                            "currency": "COP",
+                            "last_price": "2385.00",
+                            "change": "35.00",
+                            "change_pct": "1.49",
+                            "updated_at": "2026-11-18T14:42:00Z"
+                          },
+                          "quantity": 120,
+                          "avg_cost": "2210.50",
+                          "market_value": "286200.00",
+                          "unrealized_pnl": "20940.00",
+                          "unrealized_pnl_pct": "7.89",
+                          "currency": "COP"
+                        },
+                        "properties": {
+                          "instrument": {
+                            "type": "object",
+                            "example": {
+                              "id": "ECOPETROL-CO",
+                              "ticker": "ECOPETROL",
+                              "name": "Ecopetrol S.A.",
+                              "country": "CO",
+                              "type": "STOCK",
+                              "currency": "COP",
+                              "last_price": "2385.00",
+                              "change": "35.00",
+                              "change_pct": "1.49",
+                              "updated_at": "2026-11-18T14:42:00Z"
+                            },
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "ECOPETROL-CO",
+                                "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                              },
+                              "ticker": {
+                                "type": "string",
+                                "pattern": "^[A-Z0-9]{1,12}$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": "string",
+                                "enum": [
+                                  "CO",
+                                  "MX",
+                                  "PE"
+                                ],
+                                "example": "CO"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "STOCK",
+                                  "ETF"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string",
+                                "enum": [
+                                  "COP",
+                                  "MXN",
+                                  "PEN"
+                                ],
+                                "example": "COP"
+                              },
+                              "last_price": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change_pct": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "example": "2026-11-18T14:42:00Z",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "ticker",
+                              "name",
+                              "country",
+                              "type",
+                              "currency",
+                              "last_price",
+                              "change",
+                              "change_pct",
+                              "updated_at"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "avg_cost": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "market_value": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "unrealized_pnl": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "unrealized_pnl_pct": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          }
+                        },
+                        "required": [
+                          "instrument",
+                          "quantity",
+                          "avg_cost",
+                          "market_value",
+                          "unrealized_pnl",
+                          "unrealized_pnl_pct",
+                          "currency"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "allocation": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "CASH",
+                              "STOCK",
+                              "ETF"
+                            ]
+                          },
+                          "value": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "pct": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "value",
+                          "pct"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "fx_rates_used": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "rate": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "as_of": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to",
+                          "rate",
+                          "as_of"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "base_currency",
+                    "total_value",
+                    "cash_value",
+                    "invested_value",
+                    "day_change",
+                    "day_change_pct",
+                    "positions",
+                    "allocation",
+                    "fx_rates_used"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "summary": "Historial de movimientos del usuario",
+        "tags": [
+          "transactions"
+        ],
+        "description": "Orden estable: `created_at DESC, id DESC`. `from` y `to` son inclusivos.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEPOSIT",
+                "BUY",
+                "SELL",
+                "FEE"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "2026-11-18T14:42:00Z",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "description": "Desde este instante, inclusive"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "2026-11-18T14:42:00Z",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "description": "Hasta este instante, inclusive"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "maxLength": 512
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Cursor opaco devuelto en `next_cursor`"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "txn_01JC0000000000000000000011",
+                        "type": "BUY",
+                        "amount": "-23860.00",
+                        "currency": "COP",
+                        "description": "Compra 10 ECOPETROL",
+                        "order_id": "ord_01JC0000000000000000000001",
+                        "created_at": "2026-11-18T14:43:10Z"
+                      }
+                    ],
+                    "next_cursor": "MjAyNi0xMS0xOFQxNDo0MzoxMC4wMDBafG9yZF8wMUpD"
+                  },
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "example": {
+                          "id": "txn_01JC0000000000000000000011",
+                          "type": "BUY",
+                          "amount": "-23860.00",
+                          "currency": "COP",
+                          "description": "Compra 10 ECOPETROL",
+                          "order_id": "ord_01JC0000000000000000000001",
+                          "created_at": "2026-11-18T14:43:10Z"
+                        },
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^txn_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "DEPOSIT",
+                              "BUY",
+                              "SELL",
+                              "FEE"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "order_id": {
+                            "type": "string",
+                            "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$",
+                            "nullable": true
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type",
+                          "amount",
+                          "currency",
+                          "description",
+                          "order_id",
+                          "created_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "summary": "Resumen para el dashboard: portafolio, movimientos del mercado y últimas transacciones",
+        "tags": [
+          "dashboard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "portfolio_summary": {
+                      "base_currency": "COP",
+                      "total_value": "50286200.00",
+                      "cash_value": "50000000.00",
+                      "invested_value": "286200.00",
+                      "day_change": "4200.00",
+                      "day_change_pct": "1.49"
+                    },
+                    "top_movers": {
+                      "gainers": [
+                        {
+                          "id": "ECOPETROL-CO",
+                          "ticker": "ECOPETROL",
+                          "name": "Ecopetrol S.A.",
+                          "country": "CO",
+                          "type": "STOCK",
+                          "currency": "COP",
+                          "last_price": "2385.00",
+                          "change": "35.00",
+                          "change_pct": "1.49",
+                          "updated_at": "2026-11-18T14:42:00Z"
+                        }
+                      ],
+                      "losers": []
+                    },
+                    "recent_transactions": [
+                      {
+                        "id": "txn_01JC0000000000000000000011",
+                        "type": "BUY",
+                        "amount": "-23860.00",
+                        "currency": "COP",
+                        "description": "Compra 10 ECOPETROL",
+                        "order_id": "ord_01JC0000000000000000000001",
+                        "created_at": "2026-11-18T14:43:10Z"
+                      }
+                    ]
+                  },
+                  "properties": {
+                    "portfolio_summary": {
+                      "type": "object",
+                      "example": {
+                        "base_currency": "COP",
+                        "total_value": "50286200.00",
+                        "cash_value": "50000000.00",
+                        "invested_value": "286200.00",
+                        "day_change": "4200.00",
+                        "day_change_pct": "1.49"
+                      },
+                      "properties": {
+                        "base_currency": {
+                          "type": "string",
+                          "enum": [
+                            "COP",
+                            "MXN",
+                            "PEN"
+                          ],
+                          "example": "COP"
+                        },
+                        "total_value": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        },
+                        "cash_value": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        },
+                        "invested_value": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        },
+                        "day_change": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        },
+                        "day_change_pct": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        }
+                      },
+                      "required": [
+                        "base_currency",
+                        "total_value",
+                        "cash_value",
+                        "invested_value",
+                        "day_change",
+                        "day_change_pct"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "top_movers": {
+                      "type": "object",
+                      "properties": {
+                        "gainers": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "object",
+                            "example": {
+                              "id": "ECOPETROL-CO",
+                              "ticker": "ECOPETROL",
+                              "name": "Ecopetrol S.A.",
+                              "country": "CO",
+                              "type": "STOCK",
+                              "currency": "COP",
+                              "last_price": "2385.00",
+                              "change": "35.00",
+                              "change_pct": "1.49",
+                              "updated_at": "2026-11-18T14:42:00Z"
+                            },
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "ECOPETROL-CO",
+                                "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                              },
+                              "ticker": {
+                                "type": "string",
+                                "pattern": "^[A-Z0-9]{1,12}$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": "string",
+                                "enum": [
+                                  "CO",
+                                  "MX",
+                                  "PE"
+                                ],
+                                "example": "CO"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "STOCK",
+                                  "ETF"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string",
+                                "enum": [
+                                  "COP",
+                                  "MXN",
+                                  "PEN"
+                                ],
+                                "example": "COP"
+                              },
+                              "last_price": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change_pct": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "example": "2026-11-18T14:42:00Z",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "ticker",
+                              "name",
+                              "country",
+                              "type",
+                              "currency",
+                              "last_price",
+                              "change",
+                              "change_pct",
+                              "updated_at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "losers": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "object",
+                            "example": {
+                              "id": "ECOPETROL-CO",
+                              "ticker": "ECOPETROL",
+                              "name": "Ecopetrol S.A.",
+                              "country": "CO",
+                              "type": "STOCK",
+                              "currency": "COP",
+                              "last_price": "2385.00",
+                              "change": "35.00",
+                              "change_pct": "1.49",
+                              "updated_at": "2026-11-18T14:42:00Z"
+                            },
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "ECOPETROL-CO",
+                                "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                              },
+                              "ticker": {
+                                "type": "string",
+                                "pattern": "^[A-Z0-9]{1,12}$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": "string",
+                                "enum": [
+                                  "CO",
+                                  "MX",
+                                  "PE"
+                                ],
+                                "example": "CO"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "STOCK",
+                                  "ETF"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string",
+                                "enum": [
+                                  "COP",
+                                  "MXN",
+                                  "PEN"
+                                ],
+                                "example": "COP"
+                              },
+                              "last_price": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "change_pct": {
+                                "type": "string",
+                                "example": "1234.56",
+                                "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "example": "2026-11-18T14:42:00Z",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "ticker",
+                              "name",
+                              "country",
+                              "type",
+                              "currency",
+                              "last_price",
+                              "change",
+                              "change_pct",
+                              "updated_at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "gainers",
+                        "losers"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "recent_transactions": {
+                      "type": "array",
+                      "maxItems": 5,
+                      "items": {
+                        "type": "object",
+                        "example": {
+                          "id": "txn_01JC0000000000000000000011",
+                          "type": "BUY",
+                          "amount": "-23860.00",
+                          "currency": "COP",
+                          "description": "Compra 10 ECOPETROL",
+                          "order_id": "ord_01JC0000000000000000000001",
+                          "created_at": "2026-11-18T14:43:10Z"
+                        },
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^txn_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "DEPOSIT",
+                              "BUY",
+                              "SELL",
+                              "FEE"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "COP",
+                              "MXN",
+                              "PEN"
+                            ],
+                            "example": "COP"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "order_id": {
+                            "type": "string",
+                            "pattern": "^ord_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$",
+                            "nullable": true
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "example": "2026-11-18T14:42:00Z",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type",
+                          "amount",
+                          "currency",
+                          "description",
+                          "order_id",
+                          "created_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "portfolio_summary",
+                    "top_movers",
+                    "recent_transactions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/reset": {
+      "post": {
+        "summary": "Trunca los datos y vuelve a correr el seed",
+        "tags": [
+          "testing"
+        ],
+        "description": "También quita los overrides de reloj, mercado y precios.",
+        "responses": {
+          "204": {
+            "description": "Sin contenido"
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/clock": {
+      "post": {
+        "summary": "Fija el reloj del servidor, o lo libera con `now: null`",
+        "tags": [
+          "testing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "now": {
+                    "type": "string",
+                    "example": "2026-11-18T14:42:00Z",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "now"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "properties": {
+                    "now": {
+                      "type": "string",
+                      "example": "2026-11-18T14:42:00Z",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    },
+                    "frozen": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "now",
+                    "frozen"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/market/{country}": {
+      "post": {
+        "summary": "Fuerza el mercado de un país a estar siempre abierto o a respetar su horario",
+        "tags": [
+          "testing"
+        ],
+        "description": "`always_open: true` lo deja siempre abierto; `false` hace valer el horario simulado (cerrado fuera de él); `null` vuelve a `MARKET_ALWAYS_OPEN`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "always_open": {
+                    "type": "boolean",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "always_open"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CO",
+                "MX",
+                "PE"
+              ],
+              "example": "CO"
+            },
+            "in": "path",
+            "name": "country",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "properties": {
+                    "country": {
+                      "type": "string",
+                      "enum": [
+                        "CO",
+                        "MX",
+                        "PE"
+                      ],
+                      "example": "CO"
+                    },
+                    "always_open": {
+                      "type": "boolean"
+                    },
+                    "market": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "OPEN",
+                            "CLOSED"
+                          ]
+                        },
+                        "opens_at": {
+                          "type": "string",
+                          "example": "2026-11-18T14:42:00Z",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                        },
+                        "closes_at": {
+                          "type": "string",
+                          "example": "2026-11-18T14:42:00Z",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "opens_at",
+                        "closes_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "country",
+                    "always_open",
+                    "market"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/prices/{instrument_id}": {
+      "post": {
+        "summary": "Congela el precio de un instrumento, o lo libera con `price: null`",
+        "tags": [
+          "testing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "type": "string",
+                    "example": "1234.56",
+                    "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "price"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "ECOPETROL-CO",
+              "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+            },
+            "in": "path",
+            "name": "instrument_id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "properties": {
+                    "instrument_id": {
+                      "type": "string",
+                      "example": "ECOPETROL-CO",
+                      "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                    },
+                    "frozen": {
+                      "type": "boolean"
+                    },
+                    "last_price": {
+                      "type": "string",
+                      "example": "1234.56",
+                      "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                    }
+                  },
+                  "required": [
+                    "instrument_id",
+                    "frozen",
+                    "last_price"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/users": {
+      "post": {
+        "summary": "Crea un usuario con saldos y posiciones dados y devuelve sus tokens",
+        "tags": [
+          "testing"
+        ],
+        "description": "Los saldos entran como depósitos y las posiciones como compras sin comisión, así el ledger sigue cuadrando.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "default": "Test1234!",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "default": "Usuario QA",
+                    "minLength": 3,
+                    "maxLength": 80
+                  },
+                  "country": {
+                    "type": "string",
+                    "default": "CO",
+                    "enum": [
+                      "CO",
+                      "MX",
+                      "PE"
+                    ],
+                    "example": "CO"
+                  },
+                  "balances": {
+                    "type": "object",
+                    "default": {},
+                    "properties": {
+                      "COP": {
+                        "type": "string",
+                        "example": "1234.56",
+                        "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                      },
+                      "MXN": {
+                        "type": "string",
+                        "example": "1234.56",
+                        "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                      },
+                      "PEN": {
+                        "type": "string",
+                        "example": "1234.56",
+                        "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "positions": {
+                    "type": "array",
+                    "default": [],
+                    "uniqueItems": true,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "instrument_id": {
+                          "type": "string",
+                          "example": "ECOPETROL-CO",
+                          "pattern": "^[A-Z0-9]{1,12}-(CO|MX|PE)$"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "avg_cost": {
+                          "type": "string",
+                          "example": "1234.56",
+                          "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                        }
+                      },
+                      "required": [
+                        "instrument_id",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "example": {
+                    "user": {
+                      "id": "usr_01JC0000000000000000000001",
+                      "email": "demo@milainvest.app",
+                      "full_name": "Usuario Demo",
+                      "country": "CO",
+                      "base_currency": "COP",
+                      "document_type": "CC",
+                      "document_last4": "4050"
+                    },
+                    "tokens": {
+                      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                      "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                      "token_type": "bearer",
+                      "expires_in": 900
+                    }
+                  },
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "example": {
+                        "id": "usr_01JC0000000000000000000001",
+                        "email": "demo@milainvest.app",
+                        "full_name": "Usuario Demo",
+                        "country": "CO",
+                        "base_currency": "COP",
+                        "document_type": "CC",
+                        "document_last4": "4050"
+                      },
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "usr_01JC0000000000000000000001",
+                          "pattern": "^usr_[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$"
+                        },
+                        "email": {
+                          "type": "string",
+                          "example": "demo@milainvest.app",
+                          "format": "email"
+                        },
+                        "full_name": {
+                          "type": "string",
+                          "example": "Usuario Demo"
+                        },
+                        "country": {
+                          "type": "string",
+                          "enum": [
+                            "CO",
+                            "MX",
+                            "PE"
+                          ],
+                          "example": "CO"
+                        },
+                        "base_currency": {
+                          "type": "string",
+                          "enum": [
+                            "COP",
+                            "MXN",
+                            "PEN"
+                          ],
+                          "example": "COP"
+                        },
+                        "document_type": {
+                          "type": "string",
+                          "enum": [
+                            "CC",
+                            "CE",
+                            "CURP",
+                            "DNI"
+                          ],
+                          "example": "CC"
+                        },
+                        "document_last4": {
+                          "type": "string",
+                          "example": "4050",
+                          "minLength": 1,
+                          "maxLength": 4
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "full_name",
+                        "country",
+                        "base_currency",
+                        "document_type",
+                        "document_last4"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDFKQyJ9.c2lnbmF0dXJl",
+                        "refresh_token": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ",
+                        "token_type": "bearer",
+                        "expires_in": 900
+                      },
+                      "properties": {
+                        "access_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        },
+                        "refresh_token": {
+                          "type": "string",
+                          "example": "m2Yc0aXkW3tq8l1nV5bZ7pRj4sHd6fGu9eKoIxTyAwQ"
+                        },
+                        "token_type": {
+                          "type": "string",
+                          "enum": [
+                            "bearer"
+                          ]
+                        },
+                        "expires_in": {
+                          "type": "integer",
+                          "example": 900,
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "access_token",
+                        "refresh_token",
+                        "token_type",
+                        "expires_in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "tokens"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`INSTRUMENT_NOT_FOUND`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`AUTH_EMAIL_TAKEN`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/_testing/ledger": {
+      "get": {
+        "summary": "Verifica las invariantes del ledger sobre toda la base",
+        "tags": [
+          "testing"
+        ],
+        "description": "Para cada cuenta, `available + reserved == SUM(ledger_entries.amount)`; y cada journal suma cero por moneda.",
+        "responses": {
+          "200": {
+            "description": "Respuesta exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Respuesta exitosa",
+                  "type": "object",
+                  "properties": {
+                    "balanced": {
+                      "type": "boolean"
+                    },
+                    "accounts_checked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "mismatched_accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "account_id": {
+                            "type": "string"
+                          },
+                          "cached": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          },
+                          "ledger": {
+                            "type": "string",
+                            "example": "1234.56",
+                            "pattern": "^-?\\d{1,16}(\\.\\d{1,6})?$"
+                          }
+                        },
+                        "required": [
+                          "account_id",
+                          "cached",
+                          "ledger"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "unbalanced_journals": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "balanced",
+                    "accounts_checked",
+                    "mismatched_accounts",
+                    "unbalanced_journals"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`INTERNAL_ERROR`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "auth",
+      "description": "Registro, login, refresh con rotación y logout"
+    },
+    {
+      "name": "users",
+      "description": "Perfil del usuario"
+    },
+    {
+      "name": "meta",
+      "description": "Países, monedas, documentos y horarios de mercado"
+    },
+    {
+      "name": "accounts",
+      "description": "Cuentas por moneda y depósitos virtuales"
+    },
+    {
+      "name": "market",
+      "description": "Instrumentos y precios simulados"
+    },
+    {
+      "name": "orders",
+      "description": "Órdenes a mercado: preview, ejecución y consulta"
+    },
+    {
+      "name": "portfolio",
+      "description": "Posiciones y valorización"
+    },
+    {
+      "name": "transactions",
+      "description": "Historial de movimientos"
+    },
+    {
+      "name": "dashboard",
+      "description": "Resumen agregado"
+    },
+    {
+      "name": "testing",
+      "description": "Control de escenarios para QA (solo dev/test)"
+    }
+  ]
+}

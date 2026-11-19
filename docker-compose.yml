@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: mila
+      POSTGRES_PASSWORD: mila
+      POSTGRES_DB: mila
+    ports:
+      - '${DB_HOST_PORT:-5432}:5432'
+    volumes:
+      - mila-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mila -d mila']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: dev
+    command: sh -c "pnpm db:migrate && pnpm db:seed && pnpm dev"
+    environment:
+      APP_ENV: dev
+      HOST: 0.0.0.0
+      PORT: '8000'
+      DATABASE_URL: postgres://mila:mila@db:5432/mila
+      JWT_SECRET: dev-secret-change-me-0123456789abcdef
+      DOCUMENT_PEPPER: dev-pepper-change-me-0123456789abcdef
+      MARKET_ALWAYS_OPEN: 'true'
+      LOG_LEVEL: info
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./drizzle:/app/drizzle
+      - ./scripts:/app/scripts
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 10
+
+volumes:
+  mila-db-data:
